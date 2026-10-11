@@ -1,8 +1,7 @@
 import 'dart:io';
 
-import 'package:win32_registry/win32_registry.dart';
-
 import 'print.dart';
+import 'windows_registry.dart';
 
 const protocolSchemes = ['clash', 'clashmeta', 'flclash'];
 
@@ -86,21 +85,13 @@ class Protocol {
       scheme: scheme,
       executable: Platform.resolvedExecutable,
     );
-    final regKey = CURRENT_USER.create(plan.protocolKey);
-    try {
-      regKey.setValue(
-        plan.protocolValueName,
-        RegistryValue.string(plan.protocolValue),
-      );
-      final commandKey = regKey.create(plan.commandKey);
-      try {
-        commandKey.setValue('', RegistryValue.string(plan.command));
-      } finally {
-        commandKey.close();
-      }
-    } finally {
-      regKey.close();
-    }
+    writeCurrentUserProtocol(
+      protocolKey: plan.protocolKey,
+      protocolValueName: plan.protocolValueName,
+      protocolValue: plan.protocolValue,
+      commandKey: plan.commandKey,
+      command: plan.command,
+    );
   }
 
   Future<void> registerLinux(List<String> schemes) async {

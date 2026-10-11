@@ -1,7 +1,7 @@
-import 'dart:ffi';
 import 'dart:io';
 
-import 'package:ffi/ffi.dart';
+import 'process_probe.io.dart'
+    if (dart.library.js_interop) 'process_probe.web.dart';
 
 typedef ProcessLivenessProbe = Future<bool> Function(int pid);
 
@@ -11,7 +11,7 @@ Future<bool> isProcessAlive(int pid) async {
     return false;
   }
   if (Platform.isWindows) {
-    return _isWindowsProcessAlive(pid);
+    return isWindowsProcessAlive(pid);
   }
   if (Platform.isLinux) {
     return _isLinuxProcessAlive(pid);
@@ -30,46 +30,4 @@ Future<bool> _isLinuxProcessAlive(int pid) async {
   }
   final state = stat.substring(stat.lastIndexOf(')') + 1).trim();
   return state.isNotEmpty && state[0] != 'Z' && state[0] != 'X';
-}
-
-const _processQueryLimitedInformation = 0x1000;
-const _errorInvalidParameter = 87;
-const _stillActive = 259;
-
-// A Helper-spawned Core belongs to SYSTEM; OpenProcess fails with
-// ERROR_INVALID_PARAMETER only when no such process exists.
-bool _isWindowsProcessAlive(int pid) {
-  final kernel32 = DynamicLibrary.open('kernel32.dll');
-  final openProcess = kernel32
-      .lookupFunction<
-        Pointer<Void> Function(Uint32, Int32, Uint32),
-        Pointer<Void> Function(int, int, int)
-      >('OpenProcess');
-  final getLastError = kernel32
-      .lookupFunction<Uint32 Function(), int Function()>('GetLastError');
-  final getExitCodeProcess = kernel32
-      .lookupFunction<
-        Int32 Function(Pointer<Void>, Pointer<Uint32>),
-        int Function(Pointer<Void>, Pointer<Uint32>)
-      >('GetExitCodeProcess');
-  final closeHandle = kernel32
-      .lookupFunction<
-        Int32 Function(Pointer<Void>),
-        int Function(Pointer<Void>)
-      >('CloseHandle');
-
-  final handle = openProcess(_processQueryLimitedInformation, 0, pid);
-  if (handle == nullptr) {
-    return getLastError() != _errorInvalidParameter;
-  }
-  final exitCode = calloc<Uint32>();
-  try {
-    if (getExitCodeProcess(handle, exitCode) == 0) {
-      return true;
-    }
-    return exitCode.value == _stillActive;
-  } finally {
-    calloc.free(exitCode);
-    closeHandle(handle);
-  }
 }

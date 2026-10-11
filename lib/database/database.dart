@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+
+import 'connection.io.dart' if (dart.library.js_interop) 'connection.web.dart';
 
 part 'clash_providers.dart';
 part 'converter.dart';
@@ -47,17 +47,11 @@ part 'scripts.dart';
   ],
 )
 class Database extends _$Database {
-  Database([QueryExecutor? executor]) : super(executor ?? _openConnection());
+  Database([QueryExecutor? executor])
+    : super(executor ?? openDatabaseConnection());
 
   @override
   int get schemaVersion => 19;
-
-  static LazyDatabase _openConnection() {
-    return LazyDatabase(() async {
-      final databaseFile = File(await appPath.databasePath);
-      return NativeDatabase.createInBackground(databaseFile);
-    });
-  }
 
   @override
   MigrationStrategy get migration {

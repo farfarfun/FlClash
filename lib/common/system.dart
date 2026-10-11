@@ -1,8 +1,6 @@
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:ffi/ffi.dart';
 import 'package:fl_clash/common/boot_record.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/system_dns.dart';
@@ -11,6 +9,9 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
+
+import 'windows_shell.io.dart'
+    if (dart.library.js_interop) 'windows_shell.web.dart';
 
 typedef ProcessRunner =
     Future<ProcessResult> Function(String executable, List<String> arguments);
@@ -276,11 +277,8 @@ class Windows {
   static Windows? _instance;
   static const _swHide = 0;
   static const _swShowNormal = 1;
-  late DynamicLibrary _shell32;
 
-  Windows._internal() {
-    _shell32 = DynamicLibrary.open('shell32.dll');
-  }
+  Windows._internal();
 
   factory Windows() {
     _instance ??= Windows._internal();
@@ -288,42 +286,11 @@ class Windows {
   }
 
   bool runas(String command, String arguments, {bool showWindow = true}) {
-    final commandPtr = command.toNativeUtf16();
-    final argumentsPtr = arguments.toNativeUtf16();
-    final operationPtr = 'runas'.toNativeUtf16();
-
-    final shellExecute = _shell32
-        .lookupFunction<
-          Int32 Function(
-            Pointer<Utf16> hwnd,
-            Pointer<Utf16> lpOperation,
-            Pointer<Utf16> lpFile,
-            Pointer<Utf16> lpParameters,
-            Pointer<Utf16> lpDirectory,
-            Int32 nShowCmd,
-          ),
-          int Function(
-            Pointer<Utf16> hwnd,
-            Pointer<Utf16> lpOperation,
-            Pointer<Utf16> lpFile,
-            Pointer<Utf16> lpParameters,
-            Pointer<Utf16> lpDirectory,
-            int nShowCmd,
-          )
-        >('ShellExecuteW');
-
-    final result = shellExecute(
-      nullptr,
-      operationPtr,
-      commandPtr,
-      argumentsPtr,
-      nullptr,
+    final result = shellExecuteRunas(
+      command,
+      arguments,
       showWindow ? _swShowNormal : _swHide,
     );
-
-    calloc.free(commandPtr);
-    calloc.free(argumentsPtr);
-    calloc.free(operationPtr);
 
     commonPrint.log(
       'windows runas: $command $arguments resultCode:$result',
