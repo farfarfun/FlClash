@@ -162,6 +162,33 @@ jobs:
       - name: Build debug bundle
         run: flutter build ${{ matrix.platform }} --debug
 
+  web:
+    name: Web
+    if: *checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      # The web loads no native library, so these hooks only demand absent toolchains.
+      - name: Skip the native build hooks
+        run: |
+          yq -i '.hooks.user_defines.setup.build_assets = false' pubspec.yaml
+          yq -i '.hooks.user_defines.rust_api.build_assets = false' pubspec.yaml
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web
+        run: flutter build web --release
+
   go:
     name: Go core
     if: *checks
